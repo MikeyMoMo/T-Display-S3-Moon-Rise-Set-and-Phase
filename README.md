@@ -3,6 +3,8 @@ This is an active moon phase display with a moving star field on the main screen
 
 The initial goal was to show a moon with an overlay of the shadow.  This was accomplished and a few things were added.  There is a slowly moving starfield behind the moon wherein the stars gets occulded by the moon image as they scroll by, close to how it would look in real life.  The stars are random different sizes and brightnesses again for reality.
 
+To get to the menuing subsystem, press both buttons at once.  Then navigate with the bottom button and execute the selected item with the top button.
+
 On the second screen, accessed through a two-button menu, is a screen that shows the four major names phases of the moon and the next date on which they will occur.  Currently, there is only one secondary screen.  Possibly a second one (sun info) will be added.
 
 ![20250511_161304](https://github.com/user-attachments/assets/0c9e89d5-dbf1-471b-9076-3ee9ab278a7f)
