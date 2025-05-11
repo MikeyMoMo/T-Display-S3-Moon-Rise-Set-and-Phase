@@ -1,5 +1,5 @@
 # T-Display-S3-Moon-Rise-Set-and-Phase
-This is an active moon phase display with a moving star field on the main screen.  Via the menu, you can access a second screen that shows Full Moon, Last Quarter, New Moon and First Quarter dates in text.
+This is an active moon phase display with a moving star field on the main screen.  Via the menu, you can access a second screen that shows Full Moon, Last Quarter, New Moon and First Quarter dates in text.  They are listed in date order with the topmost being the soonest one to happen.
 
 The initial goal was to show a moon with an overlay of the shadow.  This was accomplished and a few things were added.  There is a slowly moving starfield behind the moon wherein the stars gets occulded by the moon image as they scroll by, close to how it would look in real life.  The stars are random different sizes and brightnesses again for reality.
 
