@@ -20,10 +20,12 @@ TFT_eSprite spriteSF = TFT_eSprite(&tft);    // Starfield  sprite.
 TFT_eSprite spriteSF_Base = TFT_eSprite(&tft);    // Starfield  sprite work area.
 TFT_eSprite spriteMoonInvis = TFT_eSprite(&tft);  // Moon intermediary for invisiblility.
 TFT_eSprite spriteMenu   = TFT_eSprite(&tft);    // Menu sprite.
+#include "Moon75.h"
 
 int         dispLine1 = 8, dispLine2, dispLine3, dispLine4, dispLine5, dispLine6;
 
-#include "Moon75.h"
+#define ORIENT_POWER_RIGHT 1
+#define ORIENT_POWER_LEFT  3
 
 #include <MoonRise.h>
 MoonRise mr;
@@ -51,7 +53,7 @@ int         brightness;
 int         count;
 int         incrPin, decrPin;              // Will be set depending on board orientation.
 int         nTemp;
-bool        WakeUp;
+bool        SleepTime;
 
 #include <JPEGDecoder.h>  // JPEG decoder library
 
@@ -62,23 +64,25 @@ String      sVer;
 #if defined CONFIG_FOR_JOE    // My friend's WAP credentials and location
 const char* chSSID      = "N_Port";           // Your router SSID.
 const char* chPassword  = "helita1943";       // Your router password.
+String      Hemisphere  = "north";            // or "south"
 const double lat        = 38.052147;          // Your location.
 const double lon        = -122.153893;
-String Hemisphere       = "north";            // or "south"
-int WakeupHour          = 10;  // Default turn on display time
-int SleepHour           = 23;  // Default turn off display time
+const int WakeupHour    = 10;  // Default turn on display time
+const int SleepHour     = 23;  // Default turn off display time
 const int defaultBright = 60;
+const int myOrientation = ORIENT_POWER_LEFT;
 
 #else                         // My WAP credentials and location.
 
 const char* chSSID      = "MikeysWAP";        // Your router SSID.
 const char* chPassword  = "Noogly99";         // Your router password.
+String      Hemisphere  = "north";  // or "south"
 const double lat        = 18.5376;            // Your location.
 const double lon        = 120.7671;
-String Hemisphere       = "north";  // or "south"
-int WakeupHour          = 10;  // Default turn on display time
-int SleepHour           = 23;  // Default turn off display time
+const int WakeupHour    = 10;  // Default turn on display time
+const int SleepHour     = 23;  // Default turn off display time
 const int defaultBright = 60;
+const int myOrientation = ORIENT_POWER_LEFT;
 #endif
 
 #include "Preferences.h"
@@ -107,13 +111,10 @@ const String TXT_MOON_WANING_CRESCENT = "Waning Crescent";
 #define      SPR_MENU_HEIGHT         40  // Menu sprite height is 42 pixels
 #define      SPR_MENU_WIDTH         320  // Menu sprite width is the display width
 
-#define ORIENT_POWER_RIGHT 1
-#define ORIENT_POWER_LEFT  3
-int     myOrientation = ORIENT_POWER_LEFT;
 int     BLchange;                        // Backlight change amount
 int     prevHour;                        // We have the BL for this hour
 int     dRead;                           // Reading from digitalRead.
-int     font4Height;
+int     font4Height;                     // Height of the built-in font 4 for line spacing.
 
 time_t  BLChangeMillis = 0;
 time_t  menuHide;
@@ -522,6 +523,7 @@ String MoonPhase(int d, int m, int y, String hemisphere)
   int c, e;
   double jd;
   int b;
+  
   if (m < 3) {
     y--;
     m += 12;

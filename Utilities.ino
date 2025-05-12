@@ -1,17 +1,27 @@
+bool iInRange (int v, int low, int high)
+{
+  return (low <= high) ? (v >= low && v <= high) : (v >= low || v <= high);
+}
 /***************************************************************************/
 void ShowFuturePhases()
 /***************************************************************************/
 {
-  // This is a lamda statement.  It must be inside a local scope like it
-  //  is defined here, inside of the ShowFuturePhases routine.  Seems like
-  //  lots of power here.  Don't know much about them.  CoPilot sent me this
-  //  little snippet of code to use.
-  //  Well, CoPilot offered up a different lamda that check for both
-  //   wrapping around 0 from 355 to 5 and for normal checking around 180
-  //   from 175 to 185.  Sweet. I am falling in love with CoPilot!  ;-))
-  auto inRange = [](int v, int low, int high) {
-    return (low <= high) ? (v >= low && v <= high) : (v >= low || v <= high);
-  };
+  // The following is a lambda statement.  It must be inside a local scope
+  //  like itis defined here, inside of the ShowFuturePhases routine.
+  //  Seems like lots of power here.  Don't know much about them.
+  //  CoPilot sent me this little snippet of code to use.
+  //  Then, CoPilot offered up a different lambda that check for both
+  //   wrapping around, i.e., 0 from 355 to 5 and for normal checking
+  //   around 180 from 175 to 185.
+  //  Sweet. I am falling in love with CoPilot! It is my new friend!  ;-))
+  //
+  // Update:
+  // However, for general purpose usage outside of this one routine, I
+  //  recoded it as a general subroutine so any other code can call it.
+
+  //  auto inRange = [](int v, int low, int high) {
+  //    return (low <= high) ? (v >= low && v <= high) : (v >= low || v <= high);
+  //  };
 
   tft.setTextDatum(TL_DATUM);
   tft.fillScreen(TFT_BLACK);
@@ -38,28 +48,28 @@ void ShowFuturePhases()
     // Make it right again!
     strftime(chBuffer, sizeof(chBuffer), "%a %b %d", tmlocalTime);
 
-    if (inRange(moon.angle, 355, 5)) {
+    if (iInRange(moon.angle, 355, 5)) {
       if (!NM_Done) {
         NM_Done = true;
         tft.drawString("New Moon", 4, useLine, 4);
         tft.drawString(chBuffer, 170, useLine, 4); useLine += font4Height;
       }
     }
-    if (inRange(moon.angle, 85, 95)) {
+    if (iInRange(moon.angle, 85, 95)) {
       if (!FQ_Done) {
         FQ_Done = true;
         tft.drawString("First Quarter", 4, useLine, 4);
         tft.drawString(chBuffer, 170, useLine, 4); useLine += font4Height;
       }
     }
-    if (inRange(moon.angle, 175, 185)) {
+    if (iInRange(moon.angle, 175, 185)) {
       if (!FM_Done) {
         FM_Done = true;
         tft.drawString("Full Moon", 4, useLine, 4);
         tft.drawString(chBuffer, 170, useLine, 4); useLine += font4Height;
       }
     }
-    if (inRange(moon.angle, 265, 285)) {
+    if (iInRange(moon.angle, 265, 285)) {
       if (!LQ_Done) {
         LQ_Done = true;
         tft.drawString("Last Quarter", 4, useLine, 4);
@@ -144,6 +154,7 @@ void CheckButtons()
     tft.setTextPadding(0);
     delay(100);
   }
+  delay(2000);
 }
 /*******************************************************************************************/
 void doMenu()
@@ -254,18 +265,23 @@ void setHourBrightness()
                 iHour, iMin, iSec, iHour, tftBL_Lvl);
   preferences.end();
 
-  if (WakeupHour > SleepHour)
-    WakeUp = (iHour >= WakeupHour || iHour <= SleepHour);
-  else
-    WakeUp = (iHour >= WakeupHour && iHour <= SleepHour);
+  SleepTime = iInRange(iHour, SleepHour, WakeupHour);
+  Serial.print("In sleep time? ");
+  Serial.println(SleepTime ? "Yes" : "No");
+  //  if (WakeupHour > SleepHour)
+  //    WakeUp = (iHour >= WakeupHour || iHour <= SleepHour);
+  //  else
+  //    WakeUp = (iHour >= WakeupHour && iHour <= SleepHour);
 
   // Serial.printf("tftBL_Lvl now set to %i\r\n", tftBL_Lvl);
 
-  if (tftBL_Lvl > 500) { // Unchanged default value still in there.
-    if (WakeUp)
-      tftBL_Lvl = defaultBright;
-    else
+  // If unchanged value still in there, pick default value.
+  // If less than 500 then user set a value, let it be.
+  if (tftBL_Lvl > 500) {  // Is it unchanged?
+    if (SleepTime)
       tftBL_Lvl = 0;
+    else
+      tftBL_Lvl = defaultBright;
   }
 
   ledcWrite(TFT_BL, tftBL_Lvl);  // Activate whatever was decided on.
