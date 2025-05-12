@@ -261,12 +261,11 @@ void setHourBrightness()
 
   // Serial.printf("tftBL_Lvl now set to %i\r\n", tftBL_Lvl);
 
-  // If the user has not changed the value and it is sleep time, turn off the display.
-  if (!WakeUp) {  // If in sleep time...
-    if (tftBL_Lvl > MAX_BRIGHTNESS) tftBL_Lvl = 0;  // 1000 means leave display off
-  } else {
-    // if it IS WakeUp time and the default 1000 is still in force, set to default.
-    if (tftBL_Lvl > MAX_BRIGHTNESS) tftBL_Lvl = defaultBright; // == 1000 no worky.  Why?
+  if (tftBL_Lvl > 500) { // Unchanged default value still in there.
+    if (WakeUp)
+      tftBL_Lvl = defaultBright;
+    else
+      tftBL_Lvl = 0;
   }
 
   ledcWrite(TFT_BL, tftBL_Lvl);  // Activate whatever was decided on.
