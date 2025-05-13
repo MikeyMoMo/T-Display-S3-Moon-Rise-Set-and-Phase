@@ -1,6 +1,14 @@
-bool iInRange (int v, int low, int high)
+/***************************************************************************/
+bool iInRange (int v, int low, int high)  // Inclusive
+/***************************************************************************/
 {
   return (low <= high) ? (v >= low && v <= high) : (v >= low || v <= high);
+}
+/***************************************************************************/
+bool xInRange (int v, int low, int high)  // Exclusive
+/***************************************************************************/
+{
+  return (low <= high) ? (v > low && v < high) : (v > low || v < high);
 }
 /***************************************************************************/
 void ShowFuturePhases()
@@ -22,6 +30,15 @@ void ShowFuturePhases()
   //  auto inRange = [](int v, int low, int high) {
   //    return (low <= high) ? (v >= low && v <= high) : (v >= low || v <= high);
   //  };
+
+  //  New Moon: 0°
+  //  Waxing Crescent: ~45°
+  //  First Quarter: ~90°
+  //  Waxing Gibbous: ~135°
+  //  Full Moon: 180°
+  //  Waning Gibbous: ~225°
+  //  Last Quarter: ~270°
+  //  Waning Crescent: ~315°
 
   tft.setTextDatum(TL_DATUM);
   tft.fillScreen(TFT_BLACK);
@@ -88,18 +105,20 @@ void CheckButtons()
   int pressLength = 0;
   int prevBL = tftBL_Lvl;
 
-  if ((digitalRead(incrPin) == 0) && (digitalRead(decrPin) == 0)) {
+  if ((digitalRead(topButton) == BUTTON_PRESSED) &&
+      (digitalRead(bottomButton) == BUTTON_PRESSED)) {
     //    Serial.printf("%lu - 1 Both pressed, do menuing.\r\n", millis());
     doMenu();
     return;
   }
 
+  tft.setTextDatum(TL_DATUM);
   // Allow the user to adjust backlight brightness.
-  while ((digitalRead(incrPin) == 0) &&
+  while ((digitalRead(topButton) == BUTTON_PRESSED) &&
          (tftBL_Lvl <= MAX_BRIGHTNESS))
   {
     delay(50);
-    if (digitalRead(decrPin) == 0) {
+    if (digitalRead(bottomButton) == BUTTON_PRESSED) {
       doMenu();
       return;
     }
@@ -126,11 +145,11 @@ void CheckButtons()
     tft.setTextPadding(0);
     delay(100);
   }
-  while ((digitalRead(decrPin)) == 0 &&
+  while ((digitalRead(bottomButton)) == BUTTON_PRESSED &&
          (tftBL_Lvl >= MIN_BRIGHTNESS))
   {
     delay(50);
-    if (digitalRead(incrPin) == 0) {
+    if (digitalRead(topButton) == BUTTON_PRESSED) {
       doMenu();
       return;
     }
@@ -154,7 +173,6 @@ void CheckButtons()
     tft.setTextPadding(0);
     delay(100);
   }
-//  delay(2000);
 }
 /*******************************************************************************************/
 void doMenu()
@@ -166,7 +184,8 @@ void doMenu()
   tft.fillScreen(TFT_BLACK);
 
   // Now, wait for unpress of both buttons.
-  while ((digitalRead(incrPin) == 0) || (digitalRead(decrPin) == 0));
+  while ((digitalRead(topButton) == BUTTON_PRESSED) ||
+         (digitalRead(bottomButton) == BUTTON_PRESSED));
 
   menuHide = millis() + MENU_HIDE_TIME;
 
@@ -176,7 +195,7 @@ void doMenu()
       spriteMenu.setTextColor(TFT_BLACK, TFT_YELLOW);
     else
       spriteMenu.setTextColor(TFT_YELLOW, TFT_BLACK);
-    spriteMenu.drawString("Show Phase Dates", 0, 10, 4);
+    spriteMenu.drawString("Show Moon Phase Dates", 0, 10, 4);
     spriteMenu.drawFastHLine(0, SPR_MENU_HEIGHT - 1, tft.width(), TFT_YELLOW);
     spriteMenu.pushSprite(0, 10);
 
@@ -185,7 +204,7 @@ void doMenu()
       spriteMenu.setTextColor(TFT_BLACK, TFT_YELLOW);
     else
       spriteMenu.setTextColor(TFT_YELLOW, TFT_BLACK);
-    spriteMenu.drawString(" ", 0, 10, 4);
+    spriteMenu.drawString("Show Sun Rise/Set Times", 0, 10, 4);
     spriteMenu.drawFastHLine(0, SPR_MENU_HEIGHT - 1, tft.width(), TFT_YELLOW);
     spriteMenu.pushSprite(0, 50);
 
@@ -208,38 +227,56 @@ void doMenu()
     spriteMenu.pushSprite(0, 130);
 
     // Select item
-    if (digitalRead(decrPin) == 0) {  // Bottom button pressed.
+    if (digitalRead(bottomButton) == BUTTON_PRESSED) {  // Bottom button pressed.
       delay(50);
-      if (digitalRead(decrPin) == 0) {  // Still pressed?
-        highlight++; if (highlight == 2) highlight = 4;  // Skip empty choices.
+      if (digitalRead(bottomButton) == BUTTON_PRESSED) {  // Still pressed?
+        highlight++; if (highlight == 3) highlight = 4;  // Skip empty choice(s).
         if (highlight > 4) highlight = 1;
         menuHide = millis() + MENU_HIDE_TIME;  // Extend auto close time.
       }
-      while (digitalRead(decrPin) == 0);  // Wait for unpress to avoid multiple actions.
+      // Wait for unpress to avoid multiple actions.
+      while (digitalRead(bottomButton) == BUTTON_PRESSED);
     }
 
-    // Execute selected
+    // Execute selected on top button press
 
-    if (digitalRead(incrPin) == 0) {  // Bottom button pressed.
+    //#define BUTTON_PRESSED 0
+    //#define BUTTON_NOT_PRESSED 1
+
+    if (digitalRead(topButton) == BUTTON_PRESSED) {  // Top button pressed.
       delay(50);
-      if (digitalRead(incrPin) == 0) {  // Still pressed?
+      if (digitalRead(topButton) == BUTTON_PRESSED) {  // Still pressed?  Do menu.
+        while (digitalRead(topButton) == BUTTON_PRESSED);  // Wait for unpress.
         switch (highlight)
         {
           case 1:
             ShowFuturePhases();
-            while ((digitalRead(incrPin) == 1) && (digitalRead(decrPin) == 1));
+            while ((digitalRead(topButton) == BUTTON_NOT_PRESSED) &&  // Wait for button press
+                   (digitalRead(bottomButton) == BUTTON_NOT_PRESSED));  // to exit.
             return; break;
 
-          // case 2:
-          //   while ((digitalRead(incrPin) == 0) || (digitalRead(decrPin) == 0));
-          //   break;
-          //
+          case 2:
+            ShowSunTimes();
+            while ((digitalRead(topButton) == BUTTON_NOT_PRESSED) &&  // Wait for button press
+                   (digitalRead(bottomButton) == BUTTON_NOT_PRESSED));  // to exit.
+            return; break;
+
           // case 3:
-          //   while ((digitalRead(incrPin) == 0) || (digitalRead(decrPin) == 0));
-          //   break;
+          //while ((digitalRead(topButton) == BUTTON_NOT_PRESSED) &&  // Wait for button press
+          //       (digitalRead(bottomButton) == BUTTON_NOT_PRESSED));  // to exit.
+          //   return; break;
 
           case 4:
-            while ((digitalRead(incrPin) == 1) && (digitalRead(decrPin) == 1));
+            //            Serial.print("1");
+            //            Serial.print(digitalRead(topButton)); Serial.println(digitalRead(bottomButton));
+            //            delay(1000);
+            //            Serial.print("2");
+            //            Serial.print(digitalRead(topButton)); Serial.println(digitalRead(bottomButton));
+            //            while ((digitalRead(topButton) == BUTTON_NOT_PRESSED) &&  // Wait for button press
+            //                   (digitalRead(bottomButton) == BUTTON_NOT_PRESSED)) { // to exit.
+            //              Serial.print("3");
+            //              Serial.print(digitalRead(topButton)); Serial.println(digitalRead(bottomButton));
+            //            }
             return; break;
 
           default:
@@ -265,15 +302,13 @@ void setHourBrightness()
                 iHour, iMin, iSec, iHour, tftBL_Lvl);
   preferences.end();
 
-  SleepTime = iInRange(iHour, SleepHour, WakeupHour);
+  SleepTime = xInRange(iHour, SleepHour, WakeupHour);
+  //  if (WakeupHour > SleepHour)
+  //    SleepTime = (iHour >= WakeupHour || iHour <= SleepHour);
+  //  else
+  //    SleepTime = (iHour >= WakeupHour && iHour <= SleepHour);
   Serial.print("In sleep time? ");
   Serial.println(SleepTime ? "Yes" : "No");
-  //  if (WakeupHour > SleepHour)
-  //    WakeUp = (iHour >= WakeupHour || iHour <= SleepHour);
-  //  else
-  //    WakeUp = (iHour >= WakeupHour && iHour <= SleepHour);
-
-  // Serial.printf("tftBL_Lvl now set to %i\r\n", tftBL_Lvl);
 
   // If unchanged value still in there, pick default value.
   // If less than 500 then user set a value, let it be.
@@ -282,6 +317,7 @@ void setHourBrightness()
       tftBL_Lvl = 0;
     else
       tftBL_Lvl = defaultBright;
+    // Serial.printf("tftBL_Lvl now set to %i\r\n", tftBL_Lvl);
   }
 
   ledcWrite(TFT_BL, tftBL_Lvl);  // Activate whatever was decided on.
@@ -358,34 +394,39 @@ void AddStars()
 {
   static int timeForStars = 0;
 
-  // y value is optional (default is 0, so no up/down scroll).
-  spriteSF_Base.scroll(-1);  // Scroll left by one pixel
-  if (timeForStars++ == 1) {  // Was 3
+  // y value is optional (default is 0, so no up/down scrolling here.
+  // We stand on our rights!).
+  spriteSF_Base.scroll(-1);  // Scroll the entire starfield left by one pixel.
+
+  // Was 3 then 1, now 2.  Trying to get the right starfield look.
+  if (timeForStars++ == 2) {
     timeForStars = 0;
     // Redraw new stars appearing on the right
     count = random(3);
     //    Serial.printf("Creating %i stars.\r\n", count);
+
+    // Notes on the following for loop:
+    // I took out the final color so it will use whatever is around the dot to be put in.
+    // That means that the alpha blend will use whatever is there instead of forcing black.
+    // If a new star goes in right next to another one, it will see some white as well as
+    //  some black.  So alpha blend can do its job properly. As it should be!
+    //
+    // Also note:
+    // I made the spriteSF_Base wider than the spriteSF (SF stands for star field). Then
+    //  I make new stars on the right end of spriteSF_Base but they can't be seen right away.
+    // Later, they scroll into view as if appearing in a window, as it should be.  The
+    //  same effect happens when a star scrolls out from behind the disk of the moon.  It
+    //  is occluded behind the moon then scrolls back into view on the left side of the
+    //  disk as the star field scrolls left.  As it should be!
     for (int i = 0; i < count; i++) { // Few new stars each frame
       brightness = random(155) + 100;
       // Serial.printf("Brightness %i ", brightness);
-      // Note:
-      // I took out the final color so it will use whatever is around the dot to be put in.
-      // That means that the alpha blend will use whatever is there instead of forcing black.
-      // If a new start goes in right next to another one, it will see some white as well as
-      //  some black.  As it should be!
-      //
-      // Also note:
-      // I made the spriteSF_Base wider than the spriteSF (SF stands for star field). Then
-      //  I make stars on the right end of spriteSF_Base but they can't be seen right away.
-      // Later, they scroll into view as if appearing in a window, as it should be.  The
-      //  same effect happens when a star scrolls out from behind the disk of the moon.  It
-      //  is occluded behind the moon then scrolls back into view on the left side of the
-      //  disk as the star field scrolls left.  As it should be!
       spriteSF_Base.fillSmoothCircle(spriteSF_Base.width() - 4, random(spriteSF.height()),
                                      random(3), RGB565(brightness, brightness, brightness));
     }
   }
 }
+/*******************************************************************************************/
 void HandleSerialInput()
 /*******************************************************************************************/
 {
@@ -416,6 +457,7 @@ void HandleSerialInput()
         ledcWrite(TFT_BL, defaultBright);  // Activate whatever was decided on.
         delay(10);
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+        tft.setTextDatum(TC_DATUM);
         tft.drawString("Turning off", tft.width() / 2, dispLine3, 4);
         tft.drawString("screen.", tft.width() / 2, dispLine4, 4);
         Serial.println("Turning screen off.");
@@ -468,4 +510,38 @@ void showInputOptionsFull()
   Serial.println("Enter H (testing) to see all Hourly brightness values on the Monitor.");
   Serial.println("Enter ? for this list.  Upper or Lower case OK.");
   Serial.println("If you make an unknown entry, this list is printed on the monitor.\r\n");
+}
+/*******************************************************************************************/
+void ShowSunTimes()
+/*******************************************************************************************/
+{
+  tft.setTextDatum(TL_DATUM);
+  tft.fillScreen(TFT_BLACK);
+  tft.fillRect(0, 0, tft.width(), dispLine5, RGB565(150, 53, 73));
+  time_t epoch = get_epoch_time();
+  tft.setTextColor(TFT_WHITE, RGB565(150, 53, 73));
+
+  time(&now);
+
+  sr.calculate(lat, lon, now);  // Get all of the answsers
+  sunTimes = localtime(&sr.riseTime);
+  strftime(chBuffer, sizeof(chBuffer), "%T", sunTimes);
+  tft.drawString("Sunrise at ", 4, dispLine1, 4);
+  tft.drawString(chBuffer, 170, dispLine1, 4);
+  Serial.printf("Sun rise: %s - ", chBuffer);
+
+  sunTimes = localtime(&sr.setTime);
+  strftime(chBuffer, sizeof(chBuffer), "%T", sunTimes);
+  tft.drawString("Sunrise at ", 4, dispLine2, 4);
+  tft.drawString(chBuffer, 170, dispLine2, 4);
+  Serial.printf("Sun set : %s\r\n", chBuffer);
+
+  spriteBG.drawString("Visible:", spriteBG.width() / 2 - 15, dispLine3, 4);
+  if (sr.isVisible)
+    spriteBG.drawString("Yes",   spriteBG.width() / 2 + 74, dispLine3, 4);
+  else
+    spriteBG.drawString("No",   spriteBG.width() / 2 + 74, dispLine3, 4);
+
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.drawString("Press either button to return.", 1, dispLine6, 4);
 }
