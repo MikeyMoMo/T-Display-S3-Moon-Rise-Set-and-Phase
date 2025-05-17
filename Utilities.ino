@@ -107,7 +107,7 @@ void CheckButtons()
 
   if ((digitalRead(topButton) == BUTTON_PRESSED) &&
       (digitalRead(bottomButton) == BUTTON_PRESSED)) {
-    //    Serial.printf("%lu - 1 Both pressed, do menuing.\r\n", millis());
+    Serial.printf("%lu - 1 Both pressed, do menuing.\r\n", millis());
     doMenu();
     return;
   }
@@ -117,8 +117,9 @@ void CheckButtons()
   while ((digitalRead(topButton) == BUTTON_PRESSED) &&
          (tftBL_Lvl <= MAX_BRIGHTNESS))
   {
-    delay(50);
+    delay(100);
     if (digitalRead(bottomButton) == BUTTON_PRESSED) {
+      Serial.printf("%lu - 2 Both pressed, do menuing.\r\n", millis());
       doMenu();
       return;
     }
@@ -138,18 +139,20 @@ void CheckButtons()
 
     ledcWrite(TFT_BL, tftBL_Lvl);
     BLChangeMillis = millis();
-    //    Serial.printf("Brightness %i\r\n", tftBL_Lvl);
+    sprintf(chBLChange, "Brightness %i", tftBL_Lvl);
+    // Serial.printf("Brightness %i\r\n", tftBL_Lvl);
     tft.setTextColor(TFT_YELLOW, RGB565(0, 0, 166));
     tft.setTextPadding(tft.width());
-    tft.drawString("Brightness " + String(tftBL_Lvl), 4, dispLine6 + 5, 4);
+    tft.drawString(chBLChange, 4, dispLine6 + 5, 4);
     tft.setTextPadding(0);
     delay(100);
   }
   while ((digitalRead(bottomButton)) == BUTTON_PRESSED &&
          (tftBL_Lvl >= MIN_BRIGHTNESS))
   {
-    delay(50);
+    delay(100);
     if (digitalRead(topButton) == BUTTON_PRESSED) {
+      Serial.printf("%lu - 3 Both pressed, do menuing.\r\n", millis());
       doMenu();
       return;
     }
@@ -166,10 +169,11 @@ void CheckButtons()
 
     ledcWrite(TFT_BL, tftBL_Lvl);
     BLChangeMillis = millis();
-    //    Serial.printf("Brightness %i\r\n", tftBL_Lvl);
+    sprintf(chBLChange, "Brightness %i", tftBL_Lvl);
+    // Serial.printf("Brightness %i\r\n", tftBL_Lvl);
     tft.setTextColor(TFT_YELLOW, RGB565(0, 0, 166));
     tft.setTextPadding(tft.width());
-    tft.drawString("Brightness " + String(tftBL_Lvl), 4, dispLine6 + 5, 4);
+    tft.drawString(chBLChange, 4, dispLine6 + 5, 4);
     tft.setTextPadding(0);
     delay(100);
   }
@@ -253,12 +257,16 @@ void doMenu()
             ShowFuturePhases();
             while ((digitalRead(topButton) == BUTTON_NOT_PRESSED) &&  // Wait for button press
                    (digitalRead(bottomButton) == BUTTON_NOT_PRESSED));  // to exit.
+            while ((digitalRead(topButton) == BUTTON_PRESSED) ||  // Wait for unpress of
+                   (digitalRead(bottomButton) == BUTTON_PRESSED));  // all buttons.
             return; break;
 
           case 2:
             ShowSunTimes();
             while ((digitalRead(topButton) == BUTTON_NOT_PRESSED) &&  // Wait for button press
                    (digitalRead(bottomButton) == BUTTON_NOT_PRESSED));  // to exit.
+            while ((digitalRead(topButton) == BUTTON_PRESSED) ||  // Wait for unpress of
+                   (digitalRead(bottomButton) == BUTTON_PRESSED));  // all buttons.
             return; break;
 
           // case 3:
@@ -266,17 +274,7 @@ void doMenu()
           //       (digitalRead(bottomButton) == BUTTON_NOT_PRESSED));  // to exit.
           //   return; break;
 
-          case 4:
-            //            Serial.print("1");
-            //            Serial.print(digitalRead(topButton)); Serial.println(digitalRead(bottomButton));
-            //            delay(1000);
-            //            Serial.print("2");
-            //            Serial.print(digitalRead(topButton)); Serial.println(digitalRead(bottomButton));
-            //            while ((digitalRead(topButton) == BUTTON_NOT_PRESSED) &&  // Wait for button press
-            //                   (digitalRead(bottomButton) == BUTTON_NOT_PRESSED)) { // to exit.
-            //              Serial.print("3");
-            //              Serial.print(digitalRead(topButton)); Serial.println(digitalRead(bottomButton));
-            //            }
+          case 4:  // Nothing to see here.  Go about your business! Yeah, that means you!!!
             return; break;
 
           default:
@@ -402,7 +400,7 @@ void AddStars()
   if (timeForStars++ == 2) {
     timeForStars = 0;
     // Redraw new stars appearing on the right
-    count = random(3);
+    count = random(4);
     //    Serial.printf("Creating %i stars.\r\n", count);
 
     // Notes on the following for loop:
@@ -418,8 +416,8 @@ void AddStars()
     //  same effect happens when a star scrolls out from behind the disk of the moon.  It
     //  is occluded behind the moon then scrolls back into view on the left side of the
     //  disk as the star field scrolls left.  As it should be!
-    for (int i = 0; i < count; i++) { // Few new stars each frame
-      brightness = random(155) + 100;
+    for (int i = 0; i < count; i++) {  // Few new stars each frame
+      brightness = random(155) + 100;  // Brightness range from 100 to 255.
       // Serial.printf("Brightness %i ", brightness);
       spriteSF_Base.fillSmoothCircle(spriteSF_Base.width() - 4, random(spriteSF.height()),
                                      random(3), RGB565(brightness, brightness, brightness));
@@ -458,7 +456,8 @@ void HandleSerialInput()
         delay(10);
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
         tft.setTextDatum(TC_DATUM);
-        tft.drawString("Turning off", tft.width() / 2, dispLine3, 4);
+        tft.drawString("By User request,", tft.width() / 2, dispLine2, 4);
+        tft.drawString("turning off", tft.width() / 2, dispLine3, 4);
         tft.drawString("screen.", tft.width() / 2, dispLine4, 4);
         Serial.println("Turning screen off.");
         delay(5000);
@@ -515,6 +514,9 @@ void showInputOptionsFull()
 void ShowSunTimes()
 /*******************************************************************************************/
 {
+  time_t riseEpoch, setEpoch, upTime;
+  int    iHour, iMin, iSec;
+
   tft.setTextDatum(TL_DATUM);
   tft.fillScreen(TFT_BLACK);
   tft.fillRect(0, 0, tft.width(), dispLine5, RGB565(150, 53, 73));
@@ -524,24 +526,332 @@ void ShowSunTimes()
   time(&now);
 
   sr.calculate(lat, lon, now);  // Get all of the answsers
-  sunTimes = localtime(&sr.riseTime);
+
+  // Rise time
+  riseEpoch = sr.riseTime;
+  sunTimes = localtime(&riseEpoch);
   strftime(chBuffer, sizeof(chBuffer), "%T", sunTimes);
   tft.drawString("Sunrise at ", 4, dispLine1, 4);
   tft.drawString(chBuffer, 170, dispLine1, 4);
   Serial.printf("Sun rise: %s - ", chBuffer);
 
-  sunTimes = localtime(&sr.setTime);
+  setEpoch = sr.setTime;
+  sunTimes = localtime(&setEpoch);
   strftime(chBuffer, sizeof(chBuffer), "%T", sunTimes);
-  tft.drawString("Sunrise at ", 4, dispLine2, 4);
+  tft.drawString("Sunset  at ", 4, dispLine2, 4);
   tft.drawString(chBuffer, 170, dispLine2, 4);
-  Serial.printf("Sun set : %s\r\n", chBuffer);
+  Serial.printf("Sun set: %s\r\n", chBuffer);
+
+  //  Serial.printf("Rise %lu, Set %lu\r\n", riseEpoch, setEpoch);
+  //  Serial.println(riseEpoch);
+  //  Serial.println(setEpoch);
+  //  upTime = riseEpoch - setEpoch;  // This is the closest so it may be reversed.  Check!
+  //  if (upTime < 0) upTime = setEpoch - riseEpoch;
+  //  iSec = upTime % 60;
+  //  upTime /= 60;  // Now minutes.
+  //  iMin = upTime % 60;
+  //  upTime /= 60;  // Now hours.
+  //  iHour = upTime % 24;
+  //  Serial.printf("Day length %i:%i:%i\r\n", iHour, iMin, iSec);
 
   spriteBG.drawString("Visible:", spriteBG.width() / 2 - 15, dispLine3, 4);
   if (sr.isVisible)
-    spriteBG.drawString("Yes",   spriteBG.width() / 2 + 74, dispLine3, 4);
+    spriteBG.drawString("Yes", spriteBG.width() / 2 + 74, dispLine3, 4);
   else
-    spriteBG.drawString("No",   spriteBG.width() / 2 + 74, dispLine3, 4);
+    spriteBG.drawString("No",  spriteBG.width() / 2 + 74, dispLine3, 4);
 
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
   tft.drawString("Press either button to return.", 1, dispLine6, 4);
+}
+/*******************************************************************************************/
+void initTime()
+/*******************************************************************************************/
+{
+  sntp_set_sync_interval(21601358);  // Get updated time every 6 hours plus a little.
+  //  sntp_set_sync_interval(86405432);  // 1 day in ms plus a little.
+  //  sntp_set_time_sync_notification_cb(timeSyncCallback);
+  sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
+
+#if defined CONFIG_FOR_JOE
+  configTzTime("PST8PDT,M3.2.0,M11.1.0", "time.nist.gov");
+#else
+  configTzTime("PHT-8", "time.nist.gov");
+#endif
+
+  Serial.print("Waiting for correct time..."); delay(5000);
+  while (!TS_Epoch); // Wait for time hack.
+
+  strftime(chBuffer, sizeof(chBuffer), "%Y", localtime(&UTC));
+  iYear = atoi(chBuffer);
+  int iLooper = 0;
+  while (iYear < 2025) {
+    Serial.print(".");
+    time(&UTC);
+    strftime (chBuffer, 100, "%Y", localtime(&UTC));
+    iYear = atoi(chBuffer);
+    if (iLooper++ > 30) {
+      Serial.println("\r\nCannot get time set. Rebooting.");
+      ESP.restart();
+    }
+    delay(2000);
+  }
+  Serial.println();
+  spriteBG.setTextDatum(TL_DATUM);
+}
+/*******************************************************************************************/
+double AgeOfTheMoon(int d, int m, int y)
+/*******************************************************************************************/
+{
+  int j = JulianDate(d, m, y);
+  //Calculate the approximate phase of the moon
+  double Phase = (j + 4.867) / 29.53059;
+  return ((Phase - (int) Phase) + .5);
+}
+/*******************************************************************************************/
+int JulianDate(int d, int m, int y)
+/*******************************************************************************************/
+{
+  int mm, yy, k1, k2, k3, j;
+  yy = y - (int)((12 - m) / 10);
+  mm = m + 9;
+  if (mm >= 12) mm = mm - 12;
+  k1 = (int)(365.25 * (yy + 4712));
+  k2 = (int)(30.6001 * mm + 0.5);
+  k3 = (int)((int)((yy / 100) + 49) * 0.75) - 38;
+  // 'j' for dates in Julian calendar:
+  j = k1 + k2 + d + 59 + 1;
+  if (j > 2299160) j = j - k3;
+  // 'j' is the Julian date at 12h UT (Universal Time) For Gregorian calendar:
+  return j;
+}
+/*******************************************************************************************/
+void timeSyncCallback(struct timeval * tv)
+/*******************************************************************************************/
+{
+  //  struct timeval {  // Instantiated as "*tv"
+  //    Number of whole seconds of elapsed time.
+  //   time_t      tv_sec;
+  //    Number of microseconds of rest of elapsed time minus tv_sec.
+  //     Always less than one million.
+  //   long int    tv_usec;
+  //  Serial.print("\n** > Time Sync Received at ");
+  //  Serial.println(ctime(&tv->tv_sec));
+  TS_Epoch = tv->tv_sec;
+}
+/*******************************************************************************************/
+String MoonPhase(int d, int m, int y, String hemisphere)
+/*******************************************************************************************/
+{
+  //  New Moon: 0°
+  //  Waxing Crescent: ~45°
+  //  First Quarter: ~90°
+  //  Waxing Gibbous: ~135°
+  //  Full Moon: 180°
+  //  Waning Gibbous: ~225°
+  //  Last Quarter: ~270°
+  //  Waning Crescent: ~315°
+  time(&now);
+  moon = moonPhase.getPhase(now);
+  if (iInRange(moon.angle, 355, 5)) return TXT_MOON_NEW;
+  if (iInRange(moon.angle, 6, 84)) return TXT_MOON_WAXING_CRESCENT;
+  if (iInRange(moon.angle, 85, 95)) return TXT_MOON_FIRST_QUARTER;
+  if (iInRange(moon.angle, 96, 174)) return TXT_MOON_WAXING_GIBBOUS;
+  if (iInRange(moon.angle, 175, 185)) return TXT_MOON_FULL;
+  if (iInRange(moon.angle, 186, 264)) return TXT_MOON_WANING_GIBBOUS;
+  if (iInRange(moon.angle, 265, 275)) return TXT_MOON_THIRD_QUARTER;
+  if (iInRange(moon.angle, 286, 354)) return TXT_MOON_WANING_CRESCENT;
+}
+/*******************************************************************************************/
+// Draw a JPEG on the TFT pulled from a program memory array
+/*******************************************************************************************/
+void drawArrayJpeg(const uint8_t arrayname[], uint32_t array_size, int xpos, int ypos) {
+
+  int x = xpos;
+  int y = ypos;
+
+  JpegDec.decodeArray(arrayname, array_size);
+  // jpegInfo();  // Print information from the JPEG file (could comment this line out)
+  renderJPEG(x, y);
+  //  Serial.println("#########################");
+}
+/*******************************************************************************************/
+// Print image information to the serial port (optional)
+/*******************************************************************************************/
+void jpegInfo() {
+  Serial.println(F("==============="));
+  Serial.println(F("JPEG image info"));
+  Serial.println(F("==============="));
+  Serial.print(F(  "Width      :")); Serial.println(JpegDec.width);
+  Serial.print(F(  "Height     :")); Serial.println(JpegDec.height);
+  Serial.print(F(  "Components :")); Serial.println(JpegDec.comps);
+  Serial.print(F(  "MCU / row  :")); Serial.println(JpegDec.MCUSPerRow);
+  Serial.print(F(  "MCU / col  :")); Serial.println(JpegDec.MCUSPerCol);
+  Serial.print(F(  "Scan type  :")); Serial.println(JpegDec.scanType);
+  Serial.print(F(  "MCU width  :")); Serial.println(JpegDec.MCUWidth);
+  Serial.print(F(  "MCU height :")); Serial.println(JpegDec.MCUHeight);
+  Serial.println(F("==============="));
+}
+/*******************************************************************************************/
+// Draw a JPEG on the TFT, images will be cropped on the right & bottom if they do not fit
+/*******************************************************************************************/
+// This function assumes xpos,ypos is a valid screen coordinate.
+// For convenience images that do not fit totally on the screen are cropped to the
+//  nearest MCU size and may leave right/bottom borders.
+void renderJPEG(int xpos, int ypos) {
+
+  // retrieve information about the image
+  uint16_t *pImg;
+  uint16_t mcu_w = JpegDec.MCUWidth;
+  uint16_t mcu_h = JpegDec.MCUHeight;
+  uint32_t max_x = JpegDec.width;
+  uint32_t max_y = JpegDec.height;
+
+  // Return the minimum of two values a and b
+#define minimum(a,b)     (((a) < (b)) ? (a) : (b))
+
+  // Jpeg images are draw as a set of image block (tiles) called Minimum Coding Units (MCUs)
+  // Typically these MCUs are 16x16 pixel blocks
+  // Determine the width and height of the right and bottom edge image blocks
+  uint32_t min_w = minimum(mcu_w, max_x % mcu_w);
+  uint32_t min_h = minimum(mcu_h, max_y % mcu_h);
+
+  // save the current image block size
+  uint32_t win_w = mcu_w;
+  uint32_t win_h = mcu_h;
+
+  // record the current time so we can measure how long it takes to draw an image
+  uint32_t drawTime = millis();
+
+  // save the coordinate of the right and bottom edges to assist image cropping
+  // to the screen size
+  max_x += xpos;
+  max_y += ypos;
+
+  // read each MCU block until there are no more
+  while (JpegDec.read()) {
+
+    // save a pointer to the image block
+    pImg = JpegDec.pImage ;
+
+    // calculate where the image block should be drawn on the screen
+    // Calculate coordinates of top left corner of current MCU
+    int mcu_x = JpegDec.MCUx * mcu_w + xpos;
+    int mcu_y = JpegDec.MCUy * mcu_h + ypos;
+
+    // check if the image block size needs to be changed for the right edge
+    if (mcu_x + mcu_w <= max_x) win_w = mcu_w;
+    else win_w = min_w;
+
+    // check if the image block size needs to be changed for the bottom edge
+    if (mcu_y + mcu_h <= max_y) win_h = mcu_h;
+    else win_h = min_h;
+
+    // copy pixels into a contiguous block
+    if (win_w != mcu_w)
+    {
+      uint16_t *cImg;
+      int p = 0;
+      cImg = pImg + win_w;
+      for (int h = 1; h < win_h; h++)
+      {
+        p += mcu_w;
+        for (int w = 0; w < win_w; w++)
+        {
+          *cImg = *(pImg + w + p);
+          cImg++;
+        }
+      }
+    }
+
+    // calculate how many pixels must be drawn
+    uint32_t mcu_pixels = win_w * win_h;
+
+    spriteMoonInvis.startWrite();
+
+    // draw image MCU block only if it will fit on the screen
+    if (( mcu_x + win_w ) <= spriteMoonInvis.width() &&
+        ( mcu_y + win_h ) <= spriteMoonInvis.height())
+    {
+
+      // Now set a MCU bounding window on the TFT to push pixels
+      //  into (x, y, x + width - 1, y + height - 1)
+      spriteMoonInvis.setAddrWindow(mcu_x, mcu_y, win_w, win_h);
+
+      // Write all MCU pixels to the TFT window
+      while (mcu_pixels--) {
+        // Push each pixel to the TFT MCU area
+        spriteMoonInvis.pushColor(*pImg++);
+      }
+    }
+    // Image has run off bottom of screen so abort decoding
+    else if ( (mcu_y + win_h) >= spriteMoonInvis.height()) JpegDec.abort();
+
+    spriteMoonInvis.endWrite();
+  }
+
+  // calculate how long it took to draw the image
+  drawTime = millis() - drawTime;
+
+  // print the results to the serial port
+  //  Serial.print("Total render time was "); Serial.print(drawTime); Serial.println(" ms");
+}
+/*******************************************************************************************/
+time_t get_epoch_time()
+/*******************************************************************************************/
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return tv.tv_sec;
+}
+///*******************************************************************************************/
+//double MoonAge(int d, int m, int y)
+///*******************************************************************************************/
+//{
+//  // This routine came from:
+//  //  https://www.codeproject.com/Articles/100174/Calculate-and-Draw-Moon-Phase
+//  // I want to compare this with the one that came from David Bird.
+//  double ag, ip;
+//  int j = JulianDate(d, m, y);
+//
+//  //Calculate the approximate phase of the moon
+//  ip = (j + 4.867) / 29.53059;
+//  ip = ip - floor(ip);
+//  // After several trials I've seen to add the following lines,
+//  //  which gave the result was not bad.
+//  if (ip < 0.5)
+//    ag = ip * 29.53059 + 29.53059 / 2;
+//  else
+//    ag = ip * 29.53059 - 29.53059 / 2;
+//  // Moon's age in days
+//  ag = floor(ag) + 1;
+//  return ag;
+//}
+/*******************************************************************************************/
+void HourDance()
+/*******************************************************************************************/
+{
+  //  Serial.printf("It is now %02i:00\r\n", iHour);
+
+  // Do HourDance after updating the display to xx:00:00
+  for (int i = 0; i < 2; i++) {
+    tft.invertDisplay(false); delay(200);
+    tft.invertDisplay(true); delay(200);
+  }
+}
+/*******************************************************************************************/
+bool jpg_output_Sprite(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap)
+/*******************************************************************************************/
+{
+  // This function is be called during decoding of the jpeg file to
+  // render each block to the sprite spriteBG.  It us used to load all of the BG pictures.
+
+  // Stop further decoding as image is running off bottom of sprite
+  if ( y >= spriteMoonInvis.height() ) return 0;
+
+  // This function will clip the image block rendering
+  //  automatically at the sprite boundaries
+  spriteMoonInvis.pushImage(x, y, w, h, bitmap);
+
+  // Return 1 to decode next block
+  return 1;
 }
