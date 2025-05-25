@@ -1,4 +1,173 @@
 /***************************************************************************/
+void Build_and_Show()
+/***************************************************************************/
+{
+  if (iSec % 10 == 0) AddStars();  // Adds stars to spriteSF_Base.
+  /* Well, the following needs a little explanation.  It took a while to figure out the order
+      of stuff to do and I want to remember and you to know what is happening here.  It is
+      fairly simple to understand now that it is complete.
+
+      First, a note: spriteSF_Base is some 20 pixels wider than spriteSF.
+
+      Step 1: I have to put the starfield that is kept in spriteSF_Base onto the
+      display starfield.  spriteSF_Base is a bit wider then the display starfield sprite
+      (spriteSF).  That's so I can create the "stars" and have them appear to scroll
+      onto the screen rather than suddenly appear, fully formed on the right edge of the moon
+      window. So extra stars are waiting, hidden, to come onto the screen in a minute or two.
+      That's done by the next code statement of pushToSprite.  The right end of the Base
+      starfield gets truncated and that's exactly what I wanted to happen. So, now, we have
+      a  black background and a starfield in spriteBG sprite.
+
+      Note again: I have to determine the moon phase picture to use, then...
+      Step 2: I have to push the moon jpg into a sprite.  But, since all jpgs
+      are square, it has four sorta-triangles on it in four places -- the "corners".
+      I had to edit these and make them totally black for the next step.
+
+      Step 3: Now that I have the moon jpg with its totally black corners in a sprite, I need
+      to get rid of the black corners.  To do this, I have to push the moon sprite onto
+      another sprite with the invisible color (black) noted so those pixels will not be
+      copied to the second sprite.  That is done with the pushToSprite, 4 code lines below.
+      The target sprite already has a black background and you would not see the four corners
+      but there is still a problem. Those four corners would obscure the stars that happened
+      along where they are.  So, they have to be lopped off with the pushToSprite setting
+      black as the invisible color to leave them behind.  So, now, we have a black sprite
+      that has had a slightly wide starfield pushed onto it and then a moon image that is
+      now round, without any corners pressed on top of the start field.  Yes, that obscures
+      some stars but that's exactly what should be happening.
+
+      And, suddenly, we are done.
+
+      Step 4 and onward: That just involves putting text on the screen. Nothing special here.
+      All of that stuff goes right onto the spriteBG and when I am done with the text, I
+      throw spriteBG on the screen for the happy users to see and watch the stars scroll by.
+
+      This all happens every second and, last time I checked, takes about 60 ms.
+      That's very little of the one second I have to wait to do the next update so
+      there is lots of just waiting around...
+
+      Is it soup yet?  No.
+      Is it soup yet?  No.
+      Is it soup yet?  No.
+      Is it soup yet?  No.
+      Is it soup yet?  No.
+
+      Cards, anyone?
+  */
+
+  spriteSF_Base.pushToSprite(&spriteSF, 22, 22);
+  spriteMoonInvis.fillSprite(TFT_BLACK);
+
+  time_t epoch = get_epoch_time();
+  moon = moonPhase.getPhase(epoch);
+  Phase = moon.angle;
+#if defined DO_DEBUG_PRINTS
+  if (prevHour != iHour)
+    Serial.printf("moon.angle returned %i\r\n", Phase);
+#endif
+  if (Hemisphere == "south") Phase = 1 - Phase;
+  Phase = Phase & ~1;  // Pictures are in 2º increments so "and off" the 1 bit.
+
+  // Draw a jpeg image stored in LittleFS at x,y named by Phase.
+  sprintf(moonPhasePic, "/m%03i.jpg", Phase);
+#if defined DO_DEBUG_PRINTS
+  if (prevHour != iHour)
+    Serial.printf("Moon phase pic: %s\r\n", moonPhasePic);
+#endif
+  JPB_RC = TJpgDec.drawFsJpg(0, 0, moonPhasePic, LittleFS);
+  if (JPB_RC != JDR_OK) Serial.printf("Picture %s load failed for moon phase with "
+                                        "error code %i\r\n", moonPhasePic, JPB_RC);
+  // While the disk looks totally dark, draw a circle so we can see where the moon
+  //  is even though we cannot see it.
+  if (iInRange(Phase, 330, 28))
+    spriteMoonInvis.drawCircle(50, 50, 39, TFT_WHITE);  // The moon width is 78 pixels.
+  spriteMoonInvis.pushToSprite(&spriteSF, 19, 19, TFT_BLACK);
+  // Leave off corners.
+  spriteSF.pushToSprite(&spriteBG, 0, 0);  // , RGB565(0, 0, 166));
+
+  //Date
+  strftime(chBuffer, sizeof(chBuffer), "%D", &timeinfo);
+  //  Serial.print(chBuffer);  Serial.print(", ");
+  spriteBG.drawString("Date:",  spriteBG.width() / 2 - 15, dispLine2, 4);
+  spriteBG.drawString(chBuffer, spriteBG.width() / 2 + 54, dispLine2, 4);
+
+  // Time
+  strftime(chBuffer, sizeof(chBuffer), "%T", &timeinfo);
+  //  Serial.println(chBuffer);
+  spriteBG.drawString("Time:",  spriteBG.width() / 2 - 15, dispLine1, 4);
+  spriteBG.drawString(chBuffer, spriteBG.width() / 2 + 54, dispLine1, 4);
+
+  // Moon times
+  time(&now);
+
+  mr.calculate(lat, lon, now);  // Get all of the answsers
+
+  spriteBG.setTextColor(TFT_WHITE, RGB565(0, 0, 166));
+
+#if defined DO_DEBUG_PRINTS
+  moonTimes = localtime(&mr.riseTime);
+  strftime(chBuffer, sizeof(chBuffer), "%x %X", moonTimes);
+  if (prevHour != iHour) {
+    Serial.printf("Moon rise: %s - ", chBuffer);
+  }
+#endif
+
+  // Moon Rise
+  spriteBG.drawString("Rise:",  spriteBG.width() / 2 - 15, dispLine3, 4);
+  if (mr.riseTime < now)
+    //                        Medium grey      ,      My Blue
+    spriteBG.setTextColor(RGB565(170, 170, 170), RGB565(0, 0, 166));
+  if (mr.hasRise) {
+    moonTimes = localtime(&mr.riseTime);
+    strftime(chBuffer, sizeof(chBuffer), "%T", moonTimes);
+    spriteBG.drawString(chBuffer, spriteBG.width() / 2 + 54, dispLine3, 4);
+  } else {
+    spriteBG.drawString("None", spriteBG.width() / 2 + 54, dispLine3, 4);
+  }
+
+#if defined DO_DEBUG_PRINTS
+  moonTimes = localtime(&mr.setTime);
+  strftime(chBuffer, sizeof(chBuffer), "%x %X", moonTimes);
+  if (prevHour != iHour)
+    Serial.printf("Moon set: %s\r\n", chBuffer);
+#endif
+
+  spriteBG.setTextColor(TFT_WHITE, RGB565(0, 0, 166));
+  // Moon Set
+  spriteBG.drawString("Set:",   spriteBG.width() / 2 - 15, dispLine4, 4);
+  if (mr.setTime < now)
+    //                        Medium grey      ,      My Blue
+    spriteBG.setTextColor(RGB565(170, 170, 170), RGB565(0, 0, 166));
+  if (mr.hasSet) {
+    moonTimes = localtime(&mr.setTime);
+    strftime(chBuffer, sizeof(chBuffer), "%T", moonTimes);
+    spriteBG.drawString(chBuffer, spriteBG.width() / 2 + 54, dispLine4, 4);
+  } else {
+    spriteBG.drawString("None", spriteBG.width() / 2 + 50, dispLine4, 4);
+  }
+
+  spriteBG.setTextColor(TFT_WHITE, RGB565(0, 0, 166));
+  spriteBG.drawString("Visible:", spriteBG.width() / 2 - 15, dispLine5, 4);
+  if (mr.isVisible)
+    spriteBG.drawString("Yes",   spriteBG.width() / 2 + 74, dispLine5, 4);
+  else
+    spriteBG.drawString("No",   spriteBG.width() / 2 + 74, dispLine5, 4);
+
+  // Phase
+  spriteBG.fillRect(0, dispLine6, tft.width(), tft.height(), RGB565(0, 0, 166));
+  spriteBG.setTextColor(TFT_YELLOW, RGB565(0, 0, 166));
+  if (millis() > BLChangeMillis + showPhaseDelay) {
+    spriteBG.drawString(MoonPhase(timeinfo.tm_mday, timeinfo.tm_mon + 1,
+                                  timeinfo.tm_year + 1900, Hemisphere),
+                        4, dispLine6 + 5, 4);
+  } else {
+    tft.setTextDatum(TL_DATUM);
+    spriteBG.setTextPadding(tft.width());
+    spriteBG.drawString(chBLChange, 4, dispLine6 + 5, 4);
+    spriteBG.setTextPadding(0);
+  }
+  spriteBG.pushSprite(0, 0);
+}
+/***************************************************************************/
 bool iInRange (int v, int low, int high)  // Inclusive
 /***************************************************************************/
 {
@@ -105,11 +274,17 @@ void CheckButtons()
   int pressLength = 0;
   int prevBL = tftBL_Lvl;
 
-  if ((digitalRead(topButton) == BUTTON_PRESSED) &&
+  if ((digitalRead(topButton) == BUTTON_PRESSED) ||
       (digitalRead(bottomButton) == BUTTON_PRESSED)) {
-    Serial.printf("%lu - 1 Both pressed, do menuing.\r\n", millis());
-    doMenu();
-    return;
+    delay(250);
+    if ((digitalRead(topButton) == BUTTON_PRESSED) &&
+        (digitalRead(bottomButton) == BUTTON_PRESSED)) {
+      Serial.printf("%lu - 1 Both pressed, do menuing.\r\n", millis());
+      while ((digitalRead(topButton) == BUTTON_PRESSED) ||
+             (digitalRead(bottomButton) == BUTTON_PRESSED));
+      doMenu();
+      return;
+    }
   }
 
   tft.setTextDatum(TL_DATUM);
@@ -117,7 +292,7 @@ void CheckButtons()
   while ((digitalRead(topButton) == BUTTON_PRESSED) &&
          (tftBL_Lvl <= MAX_BRIGHTNESS))
   {
-    delay(100);
+    delay(200);
     if (digitalRead(bottomButton) == BUTTON_PRESSED) {
       Serial.printf("%lu - 2 Both pressed, do menuing.\r\n", millis());
       doMenu();
@@ -132,25 +307,23 @@ void CheckButtons()
     tftBL_Lvl += BLchange;
     if (prevBL == 0) {
       tft.writecommand(ST7789_DISPON);  // Turn on display hardware.
+      Serial.println("Turning on display");
+      delay(100);
       prevBL = tftBL_Lvl;
     }
     if (tftBL_Lvl > MAX_BRIGHTNESS)
       tftBL_Lvl = MAX_BRIGHTNESS;
-
     ledcWrite(TFT_BL, tftBL_Lvl);
     BLChangeMillis = millis();
-    sprintf(chBLChange, "Brightness %i", tftBL_Lvl);
-    // Serial.printf("Brightness %i\r\n", tftBL_Lvl);
-    tft.setTextColor(TFT_YELLOW, RGB565(0, 0, 166));
-    tft.setTextPadding(tft.width());
-    tft.drawString(chBLChange, 4, dispLine6 + 5, 4);
-    tft.setTextPadding(0);
-    delay(100);
+    sprintf(chBLChange, "Brightness: %i", tftBL_Lvl);
+    // Serial.println(chBLChange);
+    Build_and_Show();
   }
+
   while ((digitalRead(bottomButton)) == BUTTON_PRESSED &&
          (tftBL_Lvl >= MIN_BRIGHTNESS))
   {
-    delay(100);
+    delay(200);
     if (digitalRead(topButton) == BUTTON_PRESSED) {
       Serial.printf("%lu - 3 Both pressed, do menuing.\r\n", millis());
       doMenu();
@@ -164,18 +337,28 @@ void CheckButtons()
     else BLchange = 2;
     tftBL_Lvl -= BLchange;
 
-    if (tftBL_Lvl < MIN_BRIGHTNESS)
-      tftBL_Lvl = MIN_BRIGHTNESS;
+    if (tftBL_Lvl < MIN_BRIGHTNESS) tftBL_Lvl = MIN_BRIGHTNESS;
 
     ledcWrite(TFT_BL, tftBL_Lvl);
     BLChangeMillis = millis();
-    sprintf(chBLChange, "Brightness %i", tftBL_Lvl);
-    // Serial.printf("Brightness %i\r\n", tftBL_Lvl);
-    tft.setTextColor(TFT_YELLOW, RGB565(0, 0, 166));
-    tft.setTextPadding(tft.width());
-    tft.drawString(chBLChange, 4, dispLine6 + 5, 4);
-    tft.setTextPadding(0);
-    delay(100);
+    if (tftBL_Lvl == MIN_BRIGHTNESS && prevBL > MIN_BRIGHTNESS) {
+      tft.fillScreen(TFT_BLACK);
+      tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+      tft.setTextDatum(TC_DATUM);
+      ledcWrite(TFT_BL, 200);
+      tft.drawString("User commanded to", tft.width() / 2, dispLine2, 4);
+      tft.drawString("turn off screen.", tft.width() / 2, dispLine4, 4);
+      Serial.println("User commanded screen off.");
+      delay(3000);
+      ledcWrite(TFT_BL, tftBL_Lvl);
+      tft.writecommand(ST7789_DISPOFF);  // Turn off display hardware.
+      delay(100);
+    } else {
+      sprintf(chBLChange, "Brightness: %i", tftBL_Lvl);
+      // Serial.println(chBLChan
+      Build_and_Show();
+    }
+    prevBL = tftBL_Lvl;
   }
 }
 /*******************************************************************************************/
@@ -305,9 +488,10 @@ void setHourBrightness()
   //    SleepTime = (iHour >= WakeupHour || iHour <= SleepHour);
   //  else
   //    SleepTime = (iHour >= WakeupHour && iHour <= SleepHour);
+#if defined DO_DEBUG_PRINTS
   Serial.print("In sleep time? ");
   Serial.println(SleepTime ? "Yes" : "No");
-
+#endif
   // If unchanged value still in there, pick default value.
   // If less than 500 then user set a value, let it be.
   if (tftBL_Lvl > 500) {  // Is it unchanged?
@@ -345,15 +529,6 @@ void SaveOptions()
                     iHour, iMin, iSec, iHour, tftBL_Lvl);
     }
     preferences.end();
-
-    // preferences.begin("UserPrefs", RW_MODE);
-    // bool bTemp = preferences.getBool("showVolts", false);
-    // if (bTemp != showVolts) {
-    //   preferences.putBool("showVolts", showVolts);
-    //   Serial.printf("%02i:%02i:%02i - Saved new showVolts setting: %s.\r\n",
-    //                 iHour, iMin, iSec, showVolts ? "true" : "false");
-    // }
-    // preferences.end();
   }
 }
 /*******************************************************************************************/
@@ -400,8 +575,6 @@ void AddStars()
   if (timeForStars++ == 2) {
     timeForStars = 0;
     // Redraw new stars appearing on the right
-    count = random(4);
-    //    Serial.printf("Creating %i stars.\r\n", count);
 
     // Notes on the following for loop:
     // I took out the final color so it will use whatever is around the dot to be put in.
@@ -411,16 +584,39 @@ void AddStars()
     //
     // Also note:
     // I made the spriteSF_Base wider than the spriteSF (SF stands for star field). Then
-    //  I make new stars on the right end of spriteSF_Base but they can't be seen right away.
+    //  I make new stars on the right side of spriteSF_Base but they can't be seen yet.
     // Later, they scroll into view as if appearing in a window, as it should be.  The
     //  same effect happens when a star scrolls out from behind the disk of the moon.  It
     //  is occluded behind the moon then scrolls back into view on the left side of the
     //  disk as the star field scrolls left.  As it should be!
-    for (int i = 0; i < count; i++) {  // Few new stars each frame
+    count = random(4);
+    //    Serial.printf("Creating %i stars.\r\n", count);
+    for (int i = 0; i <= count; i++) {  // Few new stars each frame
       brightness = random(155) + 100;  // Brightness range from 100 to 255.
       // Serial.printf("Brightness %i ", brightness);
-      spriteSF_Base.fillSmoothCircle(spriteSF_Base.width() - 4, random(spriteSF.height()),
-                                     random(3), RGB565(brightness, brightness, brightness));
+      switch (i) {
+        case 1:  // Almost always going to be a 1
+          spriteSF_Base.fillSmoothCircle(spriteSF_Base.width() - 4,
+                                         random(spriteSF.height()), random(3),
+                                         RGB565(brightness, brightness, brightness));
+          break;
+        case 2:  // Less often a 2 making a blue dot
+          spriteSF_Base.fillSmoothCircle(spriteSF_Base.width() - 4,
+                                         random(spriteSF.height()), random(3),
+                                         RGB565(234, 245, 255));  // Little bit Blue.
+          Serial.println("Made a blue circle.");
+          break;
+        case 3:  // Even more rare, a 3 making a redish/pinkish dot
+          spriteSF_Base.fillSmoothCircle(spriteSF_Base.width() - 4,
+                                         random(spriteSF.height()), random(3),
+                                         RGB565(255, 211, 204));  // Little bit Red.
+          Serial.println("Made a red circle.");
+          break;
+
+        default:  // Create no stars or no more stars.
+//          Serial.printf("Got to switch default with i %i\r\n", i);
+          break;
+      }
     }
   }
 }
@@ -460,7 +656,7 @@ void HandleSerialInput()
         tft.drawString("turning off", tft.width() / 2, dispLine3, 4);
         tft.drawString("screen.", tft.width() / 2, dispLine4, 4);
         Serial.println("Turning screen off.");
-        delay(5000);
+        delay(3000);
         tft.fillScreen(TFT_BLACK);
         ledcWrite(TFT_BL, 0);  // Turn off the backlight
         tftBL_Lvl = 0;
@@ -479,6 +675,13 @@ void HandleSerialInput()
       }
       preferences.end();
       showInputOptions();
+      break;
+
+    case 'I':  // Show some internal info.
+      //      Serial.print("Picture loaded: /m"); Serial.print(usePic);
+      //      Serial.print(".jpg for phase ");    Serial.println(Phase);
+      Serial.printf("Picture loaded m%i.jpg\r\n", Phase);
+      //      Serial.printf("Moon phase: %f\r\n", Phase);
       break;
 
     case '?':
@@ -533,7 +736,7 @@ void ShowSunTimes()
   strftime(chBuffer, sizeof(chBuffer), "%T", sunTimes);
   tft.drawString("Sunrise at ", 4, dispLine1, 4);
   tft.drawString(chBuffer, 170, dispLine1, 4);
-  Serial.printf("Sun rise: %s - ", chBuffer);
+  Serial.printf("Sunrise: %s - ", chBuffer);
 
   setEpoch = sr.setTime;
   sunTimes = localtime(&setEpoch);
@@ -541,18 +744,6 @@ void ShowSunTimes()
   tft.drawString("Sunset  at ", 4, dispLine2, 4);
   tft.drawString(chBuffer, 170, dispLine2, 4);
   Serial.printf("Sun set: %s\r\n", chBuffer);
-
-  //  Serial.printf("Rise %lu, Set %lu\r\n", riseEpoch, setEpoch);
-  //  Serial.println(riseEpoch);
-  //  Serial.println(setEpoch);
-  //  upTime = riseEpoch - setEpoch;  // This is the closest so it may be reversed.  Check!
-  //  if (upTime < 0) upTime = setEpoch - riseEpoch;
-  //  iSec = upTime % 60;
-  //  upTime /= 60;  // Now minutes.
-  //  iMin = upTime % 60;
-  //  upTime /= 60;  // Now hours.
-  //  iHour = upTime % 24;
-  //  Serial.printf("Day length %i:%i:%i\r\n", iHour, iMin, iSec);
 
   spriteBG.drawString("Visible:", spriteBG.width() / 2 - 15, dispLine3, 4);
   if (sr.isVisible)
@@ -568,14 +759,12 @@ void initTime()
 /*******************************************************************************************/
 {
   sntp_set_sync_interval(21601358);  // Get updated time every 6 hours plus a little.
-  //  sntp_set_sync_interval(86405432);  // 1 day in ms plus a little.
-  //  sntp_set_time_sync_notification_cb(timeSyncCallback);
   sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
 
 #if defined CONFIG_FOR_JOE
-  configTzTime("PST8PDT,M3.2.0,M11.1.0", "time.nist.gov");
+  configTzTime("PST8PDT,M3.2.0,M11.1.0", "pool.ntp.org");
 #else
-  configTzTime("PHT-8", "time.nist.gov");
+  configTzTime("PHT-8", "oceania.pool.ntp.org");
 #endif
 
   Serial.print("Waiting for correct time..."); delay(5000);
@@ -597,32 +786,6 @@ void initTime()
   }
   Serial.println();
   spriteBG.setTextDatum(TL_DATUM);
-}
-/*******************************************************************************************/
-double AgeOfTheMoon(int d, int m, int y)
-/*******************************************************************************************/
-{
-  int j = JulianDate(d, m, y);
-  //Calculate the approximate phase of the moon
-  double Phase = (j + 4.867) / 29.53059;
-  return ((Phase - (int) Phase) + .5);
-}
-/*******************************************************************************************/
-int JulianDate(int d, int m, int y)
-/*******************************************************************************************/
-{
-  int mm, yy, k1, k2, k3, j;
-  yy = y - (int)((12 - m) / 10);
-  mm = m + 9;
-  if (mm >= 12) mm = mm - 12;
-  k1 = (int)(365.25 * (yy + 4712));
-  k2 = (int)(30.6001 * mm + 0.5);
-  k3 = (int)((int)((yy / 100) + 49) * 0.75) - 38;
-  // 'j' for dates in Julian calendar:
-  j = k1 + k2 + d + 59 + 1;
-  if (j > 2299160) j = j - k3;
-  // 'j' is the Julian date at 12h UT (Universal Time) For Gregorian calendar:
-  return j;
 }
 /*******************************************************************************************/
 void timeSyncCallback(struct timeval * tv)
@@ -652,27 +815,14 @@ String MoonPhase(int d, int m, int y, String hemisphere)
   //  Waning Crescent: ~315°
   time(&now);
   moon = moonPhase.getPhase(now);
-  if (iInRange(moon.angle, 355, 5)) return TXT_MOON_NEW;
-  if (iInRange(moon.angle, 6, 84)) return TXT_MOON_WAXING_CRESCENT;
-  if (iInRange(moon.angle, 85, 95)) return TXT_MOON_FIRST_QUARTER;
-  if (iInRange(moon.angle, 96, 174)) return TXT_MOON_WAXING_GIBBOUS;
+  if (iInRange(moon.angle, 355,   5)) return TXT_MOON_NEW;
+  if (iInRange(moon.angle,   6,  84)) return TXT_MOON_WAXING_CRESCENT;
+  if (iInRange(moon.angle,  85,  95)) return TXT_MOON_FIRST_QUARTER;
+  if (iInRange(moon.angle,  96, 174)) return TXT_MOON_WAXING_GIBBOUS;
   if (iInRange(moon.angle, 175, 185)) return TXT_MOON_FULL;
   if (iInRange(moon.angle, 186, 264)) return TXT_MOON_WANING_GIBBOUS;
   if (iInRange(moon.angle, 265, 275)) return TXT_MOON_THIRD_QUARTER;
   if (iInRange(moon.angle, 286, 354)) return TXT_MOON_WANING_CRESCENT;
-}
-/*******************************************************************************************/
-// Draw a JPEG on the TFT pulled from a program memory array
-/*******************************************************************************************/
-void drawArrayJpeg(const uint8_t arrayname[], uint32_t array_size, int xpos, int ypos) {
-
-  int x = xpos;
-  int y = ypos;
-
-  JpegDec.decodeArray(arrayname, array_size);
-  // jpegInfo();  // Print information from the JPEG file (could comment this line out)
-  renderJPEG(x, y);
-  //  Serial.println("#########################");
 }
 /*******************************************************************************************/
 // Print image information to the serial port (optional)
@@ -692,110 +842,6 @@ void jpegInfo() {
   Serial.println(F("==============="));
 }
 /*******************************************************************************************/
-// Draw a JPEG on the TFT, images will be cropped on the right & bottom if they do not fit
-/*******************************************************************************************/
-// This function assumes xpos,ypos is a valid screen coordinate.
-// For convenience images that do not fit totally on the screen are cropped to the
-//  nearest MCU size and may leave right/bottom borders.
-void renderJPEG(int xpos, int ypos) {
-
-  // retrieve information about the image
-  uint16_t *pImg;
-  uint16_t mcu_w = JpegDec.MCUWidth;
-  uint16_t mcu_h = JpegDec.MCUHeight;
-  uint32_t max_x = JpegDec.width;
-  uint32_t max_y = JpegDec.height;
-
-  // Return the minimum of two values a and b
-#define minimum(a,b)     (((a) < (b)) ? (a) : (b))
-
-  // Jpeg images are draw as a set of image block (tiles) called Minimum Coding Units (MCUs)
-  // Typically these MCUs are 16x16 pixel blocks
-  // Determine the width and height of the right and bottom edge image blocks
-  uint32_t min_w = minimum(mcu_w, max_x % mcu_w);
-  uint32_t min_h = minimum(mcu_h, max_y % mcu_h);
-
-  // save the current image block size
-  uint32_t win_w = mcu_w;
-  uint32_t win_h = mcu_h;
-
-  // record the current time so we can measure how long it takes to draw an image
-  uint32_t drawTime = millis();
-
-  // save the coordinate of the right and bottom edges to assist image cropping
-  // to the screen size
-  max_x += xpos;
-  max_y += ypos;
-
-  // read each MCU block until there are no more
-  while (JpegDec.read()) {
-
-    // save a pointer to the image block
-    pImg = JpegDec.pImage ;
-
-    // calculate where the image block should be drawn on the screen
-    // Calculate coordinates of top left corner of current MCU
-    int mcu_x = JpegDec.MCUx * mcu_w + xpos;
-    int mcu_y = JpegDec.MCUy * mcu_h + ypos;
-
-    // check if the image block size needs to be changed for the right edge
-    if (mcu_x + mcu_w <= max_x) win_w = mcu_w;
-    else win_w = min_w;
-
-    // check if the image block size needs to be changed for the bottom edge
-    if (mcu_y + mcu_h <= max_y) win_h = mcu_h;
-    else win_h = min_h;
-
-    // copy pixels into a contiguous block
-    if (win_w != mcu_w)
-    {
-      uint16_t *cImg;
-      int p = 0;
-      cImg = pImg + win_w;
-      for (int h = 1; h < win_h; h++)
-      {
-        p += mcu_w;
-        for (int w = 0; w < win_w; w++)
-        {
-          *cImg = *(pImg + w + p);
-          cImg++;
-        }
-      }
-    }
-
-    // calculate how many pixels must be drawn
-    uint32_t mcu_pixels = win_w * win_h;
-
-    spriteMoonInvis.startWrite();
-
-    // draw image MCU block only if it will fit on the screen
-    if (( mcu_x + win_w ) <= spriteMoonInvis.width() &&
-        ( mcu_y + win_h ) <= spriteMoonInvis.height())
-    {
-
-      // Now set a MCU bounding window on the TFT to push pixels
-      //  into (x, y, x + width - 1, y + height - 1)
-      spriteMoonInvis.setAddrWindow(mcu_x, mcu_y, win_w, win_h);
-
-      // Write all MCU pixels to the TFT window
-      while (mcu_pixels--) {
-        // Push each pixel to the TFT MCU area
-        spriteMoonInvis.pushColor(*pImg++);
-      }
-    }
-    // Image has run off bottom of screen so abort decoding
-    else if ( (mcu_y + win_h) >= spriteMoonInvis.height()) JpegDec.abort();
-
-    spriteMoonInvis.endWrite();
-  }
-
-  // calculate how long it took to draw the image
-  drawTime = millis() - drawTime;
-
-  // print the results to the serial port
-  //  Serial.print("Total render time was "); Serial.print(drawTime); Serial.println(" ms");
-}
-/*******************************************************************************************/
 time_t get_epoch_time()
 /*******************************************************************************************/
 {
@@ -803,29 +849,6 @@ time_t get_epoch_time()
   gettimeofday(&tv, NULL);
   return tv.tv_sec;
 }
-///*******************************************************************************************/
-//double MoonAge(int d, int m, int y)
-///*******************************************************************************************/
-//{
-//  // This routine came from:
-//  //  https://www.codeproject.com/Articles/100174/Calculate-and-Draw-Moon-Phase
-//  // I want to compare this with the one that came from David Bird.
-//  double ag, ip;
-//  int j = JulianDate(d, m, y);
-//
-//  //Calculate the approximate phase of the moon
-//  ip = (j + 4.867) / 29.53059;
-//  ip = ip - floor(ip);
-//  // After several trials I've seen to add the following lines,
-//  //  which gave the result was not bad.
-//  if (ip < 0.5)
-//    ag = ip * 29.53059 + 29.53059 / 2;
-//  else
-//    ag = ip * 29.53059 - 29.53059 / 2;
-//  // Moon's age in days
-//  ag = floor(ag) + 1;
-//  return ag;
-//}
 /*******************************************************************************************/
 void HourDance()
 /*******************************************************************************************/
